@@ -1,0 +1,71 @@
+	body, html{
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		padding: 0;
+		font-family: Helvetica;
+		background-color: black;
+	}
+	button{
+		width: 100%;
+		font-size: 3em;
+		padding: 1em;
+		margin-bottom: 1em;
+	}
+	.ui-button-text{
+		font-weight: normal;
+	}
+
+	.mediumText{
+		font-size: 1em;
+		line-height: 1.8em;
+		font-weight: normal;
+	}
+	.ui-dialog-title{
+		font-weight: normal;
+	}
+	.no-close .ui-dialog-titlebar-close {
+		display: none;
+	}
+	.bottomBar{
+		width: 100%;
+		position: fixed;
+		bottom: 0;
+		/*top: 90%;*/
+	}
+	.startStopBtn{
+		margin-left: 1.7%;
+	}
+	.startStopBtn, .infoBtn, .settingsBtn{
+		width: 30.5%;
+		float: left;
+	}
+	.connectedIndicator{
+		width: 4%;
+		height: auto;
+	}
+
+	.messagesHolder{
+		width: 98%;
+		padding: 1%;
+		padding-top: 6%;
+	}
+	.message{
+		padding: 1%;
+		margin-bottom: 2%;
+		background-color: white;
+	}
+	.message .title{
+		font-size: 1.2em;
+		font-weight: bold;
+		float: left;
+		line-height: 1.4em;
+	}
+	.message .time{
+		float: right;
+	}
+	.floatFix:after{content:"."; display:block; height:0; clear:both; visibility:hidden;}
+	.floatFix{display:block;}
+	/*  \*/
+	.floatFix{min-height:1%;}
+	* html .floatFix{height:1%;}	
