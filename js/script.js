@@ -4,7 +4,7 @@ var isConnected = false;
 var wifiNetworks = [];
 var waitingForWifiList = false;
 
-var socket = io.connect(location.hostname+':80');
+var socket = io.connect(location.hostname);
 
 //==========================================================
 // Send a command / value pair to the server
