@@ -13,17 +13,28 @@
 ***********************************************************/
 
 //==========================================================
-// Check for argument -d for debug
-//==========================================================
-var debug = false;
-process.argv.forEach(function (val, index, array) {
-	if(val == "-d") debug = true;
-});
-
-//==========================================================
 // Set initial variables
 //==========================================================
+var debug = false;
 var HTTPPORT = 80;
+
+//==========================================================
+// Process command line arguments:
+//  Check for argument -d for debug
+//  Check for argument -p <PORT> for HTTPPORT
+//==========================================================
+process.argv.forEach(function (val, index, array) {
+	if(val == "-d") debug = true;
+    if(val == "-p") {
+       if(! isNaN(parseInt(array[index+1]))) {
+           HTTPPORT = parseInt(array[index+1]);
+       } else {
+           if(debug) console.log('Command line argument -p requires a port number');
+           process.exit(1);
+       }
+    }
+});
+
 
 //==========================================================
 // Find the ip for this computers network interface
@@ -56,7 +67,7 @@ app.configure(function(){
 	app.use(express.static(__dirname + '/'));
 });
 
-var server = app.listen(80);
+var server = app.listen(HTTPPORT);
 var io = socket.listen(server, {'log level':1, log: debug});
 
 //==========================================================
