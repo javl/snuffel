@@ -1,8 +1,24 @@
 #! /usr/bin/env python
 
 from socketIO_client import SocketIO
-import threading, time, json
+import threading, time, json, sys, getopt
 
+SOCKETIO_HOST = 'localhost'
+SOCKETIO_PORT = 80
+
+#======================================================
+# Command line argument parsing
+#======================================================
+try:
+    opts, args = getopt.getopt(sys.argv[1:],"p:h:")
+except getopt.GetoptError:
+    print 'Usage: snuffel.py -h <socketio-host> -p <socketio-port>'
+    sys.exit(1)
+for opt, arg in opts:
+    if opt == '-p' and arg.isdigit():
+        SOCKETIO_PORT = int(arg)
+    elif opt == '-h':
+        SOCKETIO_HOST = arg
 
 #======================================================
 # Handles the socket.io connection in a seperate
@@ -10,7 +26,7 @@ import threading, time, json
 #======================================================
 class Communication(threading.Thread):
 
-    def __init__(self, host='localhost', port=80):
+    def __init__(self, host=SOCKETIO_HOST, port=SOCKETIO_PORT):
         threading.Thread.__init__(self)
         self.event = threading.Event()
         self.setDaemon(True) # so thread doesn't block when Snuffel() calls exit()
