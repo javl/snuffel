@@ -2,9 +2,12 @@
 
 from socketIO_client import SocketIO
 import threading, time, json, sys, getopt
+import pyshark
 
 SOCKETIO_HOST = 'localhost'
 SOCKETIO_PORT = 80
+
+CAPFILE = "/home/dev/captures/wlan1-jasper-en-bovenbuurman-dhcp-mdns.pcapng"
 
 #======================================================
 # Command line argument parsing
@@ -58,6 +61,19 @@ class Snuffel(threading.Thread):
         self.com.start()
 
     def run(self):
+        print "Reading packets from capture file\n"
+        capture = pyshark.FileCapture(CAPFILE, lazy=True)
+        packet = None
+        for next_packet in capture:
+            if(packet):
+                time_delta = next_packet.sniff_time - packet.sniff_time
+                print "Sleeping %f seconds until next packet." % time_delta.total_seconds()
+                time.sleep(time_delta.total_seconds())
+
+            packet = next_packet
+
+            print "Packet of size %s" % packet.length
+
         print "1: URL, 2: Plain text, 3: Image, 0: exit:\n"
         while not self.event.is_set():
             msg = raw_input()
