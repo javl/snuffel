@@ -89,5 +89,37 @@ class Snuffel(threading.Thread):
         self.event.set()
         print "Snuffel thread stopping"
 
+#======================================================
+# The packet retrieval and analyzer thread 
+#======================================================
+class PacketFlow(threading.Thread):
+
+    def __init__(self, com, packetsource, delay_packets=False):
+        threading.Thread.__init__(self)
+        self.event = threading.Event()
+        self.com = com
+        self.packetsource = packetsource
+        if DELAY_PACKETS:
+            self.delay_packets = DELAY_PACKETS
+        else:
+            self.delay_packets = delay_packets
+
+    def run(self):
+        packet = None
+
+        while not self.event.is_set():
+            next_packet = self.packetsource.next()
+            if self.delay_packets and packet is not None:
+                time_delta = next_packet.sniff_time - packet.sniff_time
+                #print "Sleeping %f seconds until next packet." % time_delta.total_seconds()
+                time.sleep(time_delta.total_seconds())
+
+            packet = next_packet
+            #print next_packet.highest_layer
+
+    def stop(self):
+        self.event.set()
+        print "PacketFlow thread stopping"
+
 snuffel = Snuffel()
 snuffel.start()
