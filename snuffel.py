@@ -13,6 +13,8 @@ CAPINTERFACE = "wlan0"
 # Delay handling packets by their sniff time
 DELAY_PACKETS = True
 
+DEBUG = True
+
 #======================================================
 # Command line argument parsing
 #======================================================
@@ -117,11 +119,13 @@ class PacketFlow(threading.Thread):
             next_packet = self.packetsource.next()
             if self.delay_packets and packet is not None:
                 time_delta = next_packet.sniff_time - packet.sniff_time
-                #print "Sleeping %f seconds until next packet." % time_delta.total_seconds()
+                if DEBUG:
+                    print "Sleeping %f seconds until next packet." % time_delta.total_seconds()
                 time.sleep(time_delta.total_seconds())
 
             packet = next_packet
-            #print next_packet.highest_layer
+            if DEBUG:
+                print next_packet.highest_layer
 
     def stop(self):
         self.event.set()
