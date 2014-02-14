@@ -7,7 +7,8 @@ import pyshark
 SOCKETIO_HOST = 'localhost'
 SOCKETIO_PORT = 80
 
-CAPFILE = "/home/dev/captures/wlan1-jasper-en-bovenbuurman-dhcp-mdns.pcapng"
+# Capture settings
+CAPFILE = "/home/dev/captures/1.pcapng"
 CAPINTERFACE = "wlan0"
 # Delay handling packets by their sniff time
 DELAY_PACKETS = True
