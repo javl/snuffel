@@ -61,18 +61,13 @@ class Snuffel(threading.Thread):
         self.com.start()
 
     def run(self):
-        print "Reading packets from capture file\n"
-        capture = pyshark.FileCapture(CAPFILE, lazy=True)
-        packet = None
-        for next_packet in capture:
-            if(packet):
-                time_delta = next_packet.sniff_time - packet.sniff_time
-                print "Sleeping %f seconds until next packet." % time_delta.total_seconds()
-                time.sleep(time_delta.total_seconds())
+        #capture = pyshark.LiveCapture(interface=CAPINTERFACE)
+        #capsource = capture.sniff_continuously()
+        capsource = pyshark.FileCapture(CAPFILE, lazy=True)
 
-            packet = next_packet
-
-            print "Packet of size %s" % packet.length
+        # start capture and processing thread
+        self.packetflow = PacketFlow(com=self.com, packetsource=capsource)
+        self.packetflow.start()
 
         print "1: URL, 2: Plain text, 3: Image, 0: exit:\n"
         while not self.event.is_set():
@@ -90,8 +85,9 @@ class Snuffel(threading.Thread):
                 self.com.sendMsg(time.strftime("%H:%M:%S"), 'img', 'http://placekitten.com/300/300')
 
     def stop(self):
-        print "Exit"
-        exit()
+        self.packetflow.stop()
+        self.event.set()
+        print "Snuffel thread stopping"
 
 snuffel = Snuffel()
 snuffel.start()
