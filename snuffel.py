@@ -8,6 +8,9 @@ SOCKETIO_HOST = 'localhost'
 SOCKETIO_PORT = 80
 
 CAPFILE = "/home/dev/captures/wlan1-jasper-en-bovenbuurman-dhcp-mdns.pcapng"
+CAPINTERFACE = "wlan0"
+# Delay handling packets by their sniff time
+DELAY_PACKETS = True
 
 #======================================================
 # Command line argument parsing
@@ -57,6 +60,8 @@ class Snuffel(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.event = threading.Event()
+
+        # communication with the frontend
         self.com = Communication()
         self.com.start()
 
@@ -71,7 +76,7 @@ class Snuffel(threading.Thread):
 
         print "1: URL, 2: Plain text, 3: Image, 0: exit:\n"
         while not self.event.is_set():
-            msg = raw_input()
+            msg = raw_input("> ")
             if msg == '0':
                 self.stop()
             elif msg == '1':
