@@ -76,7 +76,7 @@ class Snuffel(threading.Thread):
     	if args.capfile != None:
         	try:
 	        	with open(args.capfile):
-					if args.verbose: print "Using file: '%s'", args.capfile
+					if args.verbose: print "Using file: %s" % args.capfile
                 	capsource = pyshark.FileCapture(args.capfile, lazy=True)
         	except IOError:
 				if args.verbose:
