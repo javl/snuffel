@@ -15,21 +15,21 @@
 //==========================================================
 // Set initial variables
 //==========================================================
-var debug = false;
+var verbose = false;
 var HTTPPORT = 80;
 
 //==========================================================
 // Process command line arguments:
-//  Check for argument -d for debug
+//  Check for argument -v for verbose
 //  Check for argument -p <PORT> for HTTPPORT
 //==========================================================
 process.argv.forEach(function (val, index, array) {
-	if(val == "-d") debug = true;
+	if(val == "-v") verbose = true;
     if(val == "-p") {
        if(! isNaN(parseInt(array[index+1]))) {
            HTTPPORT = parseInt(array[index+1]);
        } else {
-           if(debug) console.log('Command line argument -p requires a port number');
+           if(verbose) console.log('Command line argument -p requires a port number');
            process.exit(1);
        }
     }
@@ -54,7 +54,7 @@ for (var dev in ifaces) {
 		}
 	});
 }
-if(debug) console.log('Starting node.js server on address '+IP+':'+HTTPPORT);
+if(verbose) console.log('Starting node.js server on address '+IP+':'+HTTPPORT);
 
 //==========================================================
 // Import required modules and set up express
@@ -68,7 +68,7 @@ app.configure(function(){
 });
 
 var server = app.listen(HTTPPORT);
-var io = socket.listen(server, {'log level':1, log: debug});
+var io = socket.listen(server, {'log level':1, log: verbose});
 
 //==========================================================
 // Setup socket behaviours on connect
@@ -86,7 +86,7 @@ io.sockets.on('connection', function (socket) {
 	connections++;
 	isConnected = true;
 
-	if(debug) console.log('A device connected.');
+	if(verbose) console.log('A device connected.');
 
 	//==========================================================
 	// Function to start and stop
@@ -94,10 +94,10 @@ io.sockets.on('connection', function (socket) {
 	//==========================================================
 	socket.on('status', function ( data ){
 		if(data.status){
-			if (debug) console.log('start running');
+			if (verbose) console.log('start running');
 			startTime = now();
 		}else{
-			if (debug) console.log('stop running');
+			if (verbose) console.log('stop running');
 			var addSeconds = now()-startTime;
 			totalSecondsRunning += addSeconds;
 			startTime = 0;
@@ -109,7 +109,7 @@ io.sockets.on('connection', function (socket) {
 	// data = {type, time, title, contents}
 	//==========================================================
 	socket.on('newMsg', function (data) {
-		if(debug){
+		if(verbose){
 			console.log("Socket incoming msg from python");
 			console.log("timestamp: "+data.timestamp);
 			console.log("msgType: "+data.msgType);
@@ -124,7 +124,7 @@ io.sockets.on('connection', function (socket) {
 	// data = {command}
 	//==========================================================
 	socket.on('cmdToServer', function (data) {
-		if(debug){
+		if(verbose){
 			console.log('cmdName: '+data.name);
 			console.log('cmdValue: '+data.value);
 		}
@@ -153,7 +153,7 @@ io.sockets.on('connection', function (socket) {
 	// data = {}
 	//==========================================================
 	socket.on('clearStatistics', function (data){
-		if(debug) console.log('Clearing statistics');
+		if(verbose) console.log('Clearing statistics');
 		console.log("running before: "+totalSecondsRunning);
 		totalSecondsRunning = 0;
 		console.log("running after: "+totalSecondsRunning);
@@ -204,10 +204,10 @@ io.sockets.on('connection', function (socket) {
 // Handle how Node exits 
 //==========================================================
 //process.on('exit', function(){
-//  if(debug) console.log("Exit handler");
+//  if(verbose) console.log("Exit handler");
 //});
 process.on('SIGINT', function () {
-	if(debug) console.log("SIGINT, exiting");
+	if(verbose) console.log("SIGINT, exiting");
 	process.exit();
 });
 
