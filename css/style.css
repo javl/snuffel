@@ -62,7 +62,7 @@
 		line-height: 1.4em;
 	}
 	.message .contents img{
-		width: 100%;
+		max-width: 100%;
 	}
 	.message .time{
 		float: right;
