@@ -8,7 +8,7 @@ DELAY_PACKETS = False
 
 
 image_file_extentions = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.JPG', '.JPEG', '.GIF', '.PNG', '.BMP']
-ignore_extentions = ['.xml', '.js', '.css']
+ignore_extentions = ['.xml', '.js', '.css', '.ico', '.woff']
 urls_used = []
 
 #======================================================
