@@ -286,7 +286,6 @@ class PacketAnalyzer(threading.Thread):
 
                     # Check if the found url is not empty, doesn't contain keywords
                     # from ignore_keywords, and does not end in anything from url_ignore_endings
-                    print url
                     if url != '' and all(x not in url.lower() for x in self.ignore_keywords)\
                         and not any(url.endswith(x) for x in self.url_ignore_endings):
 
@@ -305,8 +304,6 @@ class PacketAnalyzer(threading.Thread):
                                     if ARGS.verbose >= 2: print "Website: %s" % url
                                     self.send_new_item('url', url)
                             except: pass
-                        else:
-                            print "ALREADY SEEN"
                     else:
                         if ARGS.verbose >= 3 and url != '': print "Ignore: %s" % url
 
