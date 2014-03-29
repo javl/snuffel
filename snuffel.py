@@ -27,28 +27,48 @@ from wifi import Cell, Scheme
 import argparse
 from argparse import RawTextHelpFormatter
 
-PARSER = argparse.ArgumentParser(prog='snuffel', description='''Snuffel will listen to your network traffic - either on a specified live
+PARSER = argparse.ArgumentParser(prog='snuffel',
+description='''Snuffel will listen to your network traffic - either on a specified live
 interface or from a pre-recorded .pcap file - and will try to find as
 much personal info in this traffic as possible. At the same time, Snuffel
 runs a webserver to present this info on a website you can access from
 a mobile device, like a tablet or smartphone.
  
 Snuffel is not a hacking tool. It is meant to create awareness about the
-amount of publicly accessible data in your daily internet traffic.''',
+amount of publicly accessible data in your daily internet traffic.
+
+By default, Snuffel creates an accesspoint on wlan0 for the user's computer
+to connect to, while at the same time using wlan1 to connect to an existing
+wifi network in order to provide internet access.''',
 epilog='''*** Do keep in mind that Snuffel will try to show as much info
-as possible. Use this at your own risk. ***''', formatter_class=RawTextHelpFormatter, add_help=False)
-PARSER.add_argument("--help", dest="help", action="store_true", help="Show this help message and exit.")
-PARSER.add_argument('-i', default='wlan0', dest="interface", metavar='interface', action='store', help="Select which interface to use. Defaults to wlan0.")
-PARSER.add_argument('-f', metavar='filepath', dest="capfile", action='store', help='Use a pre-recorded pcap file instead of live capture.')
-PARSER.add_argument('-h', default='localhost', dest="server_host", metavar='host', action='store', help="Set host address for the webserver. Defaults to localhost.")
-PARSER.add_argument('-p', default=8080, type=int, dest="server_port", metavar='port', action='store', help="Set port number for the webserver. Defaults to 8080.")
-PARSER.add_argument('-v', dest="verbose", action='count', help="Verbose; can be used up to 3 times for more detailed output.")
-PARSER.add_argument('-d', dest="delay_packets", action='store_true', help="Use the original delay between packets when reading from a file.")
-PARSER.add_argument('-s', dest="server", action='store_true', help="Run in server mode; packets are also analyzed without connections to webinterface.")
-PARSER.add_argument('-m', dest="allow_multiple", action='store_true', help="Allow more than one connection to the webinterface.")
-PARSER.add_argument('-w', metavar='filepath', dest="output_file", action="store", help="Write all found website and image URLs to a file.")
-PARSER.add_argument('-sd', dest="server_debug", action="store_true", help="Run server in debug mode.")
-PARSER.add_argument('--version', action='version', version='%(prog)s version 0.2')
+as possible. Use this at your own risk. ***''',
+formatter_class=RawTextHelpFormatter, add_help=False)
+
+PARSER.add_argument('-i', default='wlan0', dest="interface", metavar='interface',\
+help="Select which interface to use. Defaults to wlan0.", action='store')
+PARSER.add_argument('-f', metavar='filepath', dest="capfile", action='store',\
+help='Read from a pcap file instead of live capture.')
+PARSER.add_argument('-d', dest="delay_packets", action='store_true',\
+help="Use the original delay between packets when reading from a file.")
+PARSER.add_argument('-h', default='localhost', dest="server_host", metavar='host',\
+help="Set host address for the webserver. Defaults to localhost.", action='store')
+PARSER.add_argument('-p', default=8080, type=int, dest="server_port", metavar='port',\
+help="Set port number for the webserver. Defaults to 8080.", action='store')
+PARSER.add_argument('-v', dest="verbose", action='count',\
+help="Verbose; can be used up to 3 times to set the verbose level.")
+PARSER.add_argument('-s', dest="server", action='store_true',\
+help='''Run in server mode; packets will also be handled and analyzed when
+there are no clients connected to the webinterface. Usefull for testing.''')
+PARSER.add_argument('-m', dest="allow_multiple", action='store_true',\
+help="Allow multiple clients to be connected to the webinterface at the same time.")
+PARSER.add_argument('-w', metavar='filepath', dest="output_file", action="store",\
+help="Write all found URLs to a file.")
+PARSER.add_argument('-sd', dest="server_debug", action="store_true",\
+help="Run the Flask webserver in debug mode.")
+PARSER.add_argument("--help", dest="help", action="store_true",\
+help="Show this help message and exit.")
+PARSER.add_argument('--version', action='version', version='%(prog)s version 0.2',\
+help="Show program's version number and exit")
 ARGS = PARSER.parse_args()
 
 # --help argument shows help and exits
@@ -56,34 +76,20 @@ if ARGS.help:
     PARSER.print_help()
     sys.exit(0)
 
+
 SEEN_SSID_REQUESTS = []
 SEEN_HOSTNAMES = []
-
-IMAGE_FILE_EXTENTIONS = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.svg', '.ico']
-URL_IGNORE_ENDINGS = ['.js', '.css', '.woff']
-IGNORE_KEYWORDS = []
-IGNORE_KEYWORDS.append('text/css')
 IP_TO_HOSTNAME = {}
+
 STATISTICS = []
-# GET USERAGENT
 
-#======================================================
-# Setup Flask and communication between site and server
-#======================================================
-APP = Flask(__name__) # The server object
-if ARGS.server_debug: APP.debug = True
+CONNECTIONS = {} # Stores open connections to clients
 
-# Will hold references to sockets so
-# they can be accessed from a global scope
-CONNECTIONS = {}
-
-# IP of the server
-INTERNAL_IP = socket.gethostbyname(socket.gethostname())
-
-# Amount of packets that have gone in and out
-# Global so they can be accessed from different scopes
 PACKETS_IN = 0
 PACKETS_OUT = 0
+
+APP = Flask(__name__) # The server object
+if ARGS.server_debug: APP.debug = True
 
 class FlaskServer(threading.Thread):
     """ Class that handles the Flask server,
@@ -192,7 +198,11 @@ class PacketAnalyzer(threading.Thread):
         threading.Thread.__init__(self)
         self.event = threading.Event()
         self.daemon = True
-        self.url_buffer = [] # Keeps track of the last 30 urls seen, to prevent doubles
+        self.seen_url_buffer = [] # Keeps track of the last 25 urls seen, to prevent doubles
+        self.own_ip = socket.gethostbyname(socket.gethostname())
+        self.image_extentions = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.svg', '.ico']
+        self.url_ignore_endings = ['.js', '.css', '.woff']
+        self.ignore_keywords = ['min.js', 'min.css']
 
         # Determine packetSource - live capture or pcap file
         self.packetsource = None
@@ -235,11 +245,11 @@ class PacketAnalyzer(threading.Thread):
                 # Determine if a package was going in or out,
                 # and keep track of the amount of packages
                 try:
-                    if packet.ip.src == INTERNAL_IP:
+                    if packet.ip.src == self.own_ip:
                         PACKETS_IN = PACKETS_IN + 1
                 except: pass
                 try:
-                    if packet.ip.dst == INTERNAL_IP:
+                    if packet.ip.dst == self.own_ip:
                         PACKETS_OUT = PACKETS_OUT   + 1
                 except: pass
 
@@ -275,25 +285,28 @@ class PacketAnalyzer(threading.Thread):
                         except: pass
 
                     # Check if the found url is not empty, doesn't contain keywords
-                    # from IGNORE_KEYWORDS, and does not end in anything from URL_IGNORE_ENDINGS
-                    if url != '' and all(x not in url.lower() for x in IGNORE_KEYWORDS)\
-                        and not any(url.endswith(x) for x in URL_IGNORE_ENDINGS):
+                    # from ignore_keywords, and does not end in anything from url_ignore_endings
+                    print url
+                    if url != '' and all(x not in url.lower() for x in self.ignore_keywords)\
+                        and not any(url.endswith(x) for x in self.url_ignore_endings):
 
-                        # Ignore if url was included in the last 30 urls seen,
+                        # Ignore if url was included in the last 25 urls seen,
                         # to prevent too many doubles
-                        if not url in self.url_buffer:
-                            self.url_buffer.append(url)
-                            if len(self.url_buffer) > 30: self.url_buffer.pop(0)
+                        if not url in self.seen_url_buffer:
+                            self.seen_url_buffer.append(url)
+                            if len(self.seen_url_buffer) > 25: self.seen_url_buffer.pop(0)
 
                             # Check if the URL is an image, or webpage / file
                             try:
-                                if 'image' in packet.http.accept or any(url.endswith(x) for x in IMAGE_FILE_EXTENTIONS):
+                                if 'image' in packet.http.accept or any(url.endswith(x) for x in self.image_extentions):
                                     if ARGS.verbose >= 2: print "Image: %s" % url
                                     self.send_new_item('img', url)
                                 else:
                                     if ARGS.verbose >= 2: print "Website: %s" % url
                                     self.send_new_item('url', url)
                             except: pass
+                        else:
+                            print "ALREADY SEEN"
                     else:
                         if ARGS.verbose >= 3 and url != '': print "Ignore: %s" % url
 
@@ -329,22 +342,21 @@ class PacketAnalyzer(threading.Thread):
     # but one level less deep
     def get_hostname_from_bootp(self, obj, packet_ip):
         """ Search for a hostname in the BOOTP layer
-        and match it to an IP if possible """
+        and match it to an IP if possible """        
         for child in obj.xml_obj.getchildren():
             for grandchild in child.iterchildren():
                 if "Host Name: " in grandchild.attrib['showname']:
                     hostname = grandchild.attrib['show']
                     if hostname not in SEEN_HOSTNAMES and len(hostname) > 0 and "[truncated]" not in hostname:
                         SEEN_HOSTNAMES.append(hostname)
-                        if packet_ip != "0.0.0.0":
+                        if packet_ip != "0.0.0.0": # If we know where it came from, store the hostname / ip relation
                             if ARGS.verbose >= 3: print "Matched hostname %s with ip %s" % (hostname, packet_ip)
-                            global IP_TO_HOSTNAME
+                            global IP_TO_HOSTNAME                            
                             IP_TO_HOSTNAME[packet_ip] = hostname
                         return hostname
                     else: return None # Return None to end these for loops
 
     def send_new_item(self, item_type, item_value):
-
         """ Send a message to the webinterface """
         # This Try:Except is for debugging and should be removed in the end,
         # as messages shouldn't be able to brake anything
@@ -396,8 +408,7 @@ def connect_to_network(ssid, passkey=""):
 #======================================================
 def main():
     """ Main function that starts the Flask server and
-    the packet analyzer
-    """
+    the packet analyzer """
     try:
         flask_server = FlaskServer(ARGS.server_host, ARGS.server_port)
         flask_server.start()
