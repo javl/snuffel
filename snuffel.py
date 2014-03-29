@@ -89,7 +89,7 @@ PACKETS_IN = 0
 PACKETS_OUT = 0
 
 APP = Flask(__name__) # The server object
-if ARGS.server_debug: APP.debug = True
+APP.debug = ARGS.server_debug
 
 class FlaskServer(threading.Thread):
     """ Class that handles the Flask server,
