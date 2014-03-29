@@ -201,8 +201,8 @@ class PacketAnalyzer(threading.Thread):
         self.seen_url_buffer = [] # Keeps track of the last 25 urls seen, to prevent doubles
         self.own_ip = socket.gethostbyname(socket.gethostname())
         self.image_extentions = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.svg', '.ico']
-        self.url_ignore_endings = ['.js', '.css', '.woff']
-        self.ignore_keywords = ['min.js', 'min.css']
+        self.url_ignore_endings = ['.js', '.css', '.woff', '.eot']
+        self.ignore_keywords = ['min.js', 'min.css', '.js?', '.css?']
 
         # Determine packetSource - live capture or pcap file
         self.packetsource = None
