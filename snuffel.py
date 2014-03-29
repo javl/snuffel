@@ -1,165 +1,417 @@
 #! /usr/bin/env python
-
-from socketIO_client import SocketIO
-import argparse, threading, time, json, sys, pyshark, os.path
-
-# Is this something that has to go in the arguments list for commandline control?
-DELAY_PACKETS = False 
-
-
-image_file_extentions = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.JPG', '.JPEG', '.GIF', '.PNG', '.BMP']
-ignore_extentions = ['.xml', '.js', '.css', '.ico', '.woff']
-urls_used = []
+"""
+Snuffel sniffs your internet traffic to show you what kind
+of visible data you're broadcasting to others.
+Run ./snuffel.py --help for more info.
+"""
 
 #======================================================
-# Command line argument parsing
+# Imports
 #======================================================
-parser = argparse.ArgumentParser(prog='Snuffel', description='Finds unencrypted data in your network traffic and sends this data to the Snuffel web interface using Socket.io.',
-epilog='''** This program sniffs your network traffic and will try to display as much personal info as possible: use at your own risk **''')
-parser.add_argument('-i', default='wlan0', dest="interface", metavar='interface', action='store', help="Set internet interface to use. Defaults to <wlan0>")
-parser.add_argument('-f', metavar='filepath', dest="capfile", action='store', help='Use a pre-recorded pcap file, instead of live capturing')
-parser.add_argument('-sh', default='localhost', dest="socketio_host", metavar='host', action='store', help="Socket.io host. Defaults to <localhost>")
-parser.add_argument('-sp', default=80, type=int, dest="socketio_port", metavar='port', action='store', help="Socket.io port. Defaults to <80>")
-parser.add_argument('-v', dest="verbose", action='store_true', help="Verbose mode: show extra output while running")
-parser.add_argument('--version', action='version', version='%(prog)s version 0.1')
-args = parser.parse_args()
+from flask import Flask, render_template, request
+
+from socketio import socketio_manage
+from socketio.namespace import BaseNamespace
+from socketio.server import SocketIOServer
+from socketio.mixins import BroadcastMixin
+
+import pyshark, threading, time, os, sys, socket, json
+
+# Will be used to easily connect to wifi networks
+from wifi import Cell, Scheme
 
 #======================================================
-# Handles the socket.io connection in a seperate
-# thread, so not to block the main one
+# Parse commandline arguments (before importing
+# snuffelControl so it will have access to ARGS)
 #======================================================
-class Communication(threading.Thread):
+import argparse
+from argparse import RawTextHelpFormatter
 
-    def __init__(self, host=args.socketio_host, port=args.socketio_port):
+PARSER = argparse.ArgumentParser(prog='snuffel', description='''Snuffel will listen to your network traffic - either on a specified live
+interface or from a pre-recorded .pcap file - and will try to find as
+much personal info in this traffic as possible. At the same time, Snuffel
+runs a webserver to present this info on a website you can access from
+a mobile device, like a tablet or smartphone.
+ 
+Snuffel is not a hacking tool. It is meant to create awareness about the
+amount of publicly accessible data in your daily internet traffic.''',
+epilog='''*** Do keep in mind that Snuffel will try to show as much info
+as possible. Use this at your own risk. ***''', formatter_class=RawTextHelpFormatter, add_help=False)
+PARSER.add_argument("--help", dest="help", action="store_true", help="Show this help message and exit.")
+PARSER.add_argument('-i', default='wlan0', dest="interface", metavar='interface', action='store', help="Select which interface to use. Defaults to wlan0.")
+PARSER.add_argument('-f', metavar='filepath', dest="capfile", action='store', help='Use a pre-recorded pcap file instead of live capture.')
+PARSER.add_argument('-h', default='localhost', dest="server_host", metavar='host', action='store', help="Set host address for the webserver. Defaults to localhost.")
+PARSER.add_argument('-p', default=8080, type=int, dest="server_port", metavar='port', action='store', help="Set port number for the webserver. Defaults to 8080.")
+PARSER.add_argument('-v', dest="verbose", action='count', help="Verbose; can be used up to 3 times for more detailed output.")
+PARSER.add_argument('-d', dest="delay_packets", action='store_true', help="Use the original delay between packets when reading from a file.")
+PARSER.add_argument('-s', dest="server", action='store_true', help="Run in server mode; packets are also analyzed without connections to webinterface.")
+PARSER.add_argument('-m', dest="allow_multiple", action='store_true', help="Allow more than one connection to the webinterface.")
+PARSER.add_argument('-w', metavar='filepath', dest="output_file", action="store", help="Write all found website and image URLs to a file.")
+PARSER.add_argument('-sd', dest="server_debug", action="store_true", help="Run server in debug mode.")
+PARSER.add_argument('--version', action='version', version='%(prog)s version 0.2')
+ARGS = PARSER.parse_args()
+
+# --help argument shows help and exits
+if ARGS.help:
+    PARSER.print_help()
+    sys.exit(0)
+
+SEEN_SSID_REQUESTS = []
+SEEN_HOSTNAMES = []
+
+IMAGE_FILE_EXTENTIONS = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.svg', '.ico']
+URL_IGNORE_ENDINGS = ['.js', '.css', '.woff']
+IGNORE_KEYWORDS = []
+IGNORE_KEYWORDS.append('text/css')
+IP_TO_HOSTNAME = {}
+STATISTICS = []
+# GET USERAGENT
+
+#======================================================
+# Setup Flask and communication between site and server
+#======================================================
+APP = Flask(__name__) # The server object
+if ARGS.server_debug: APP.debug = True
+
+# Will hold references to sockets so
+# they can be accessed from a global scope
+CONNECTIONS = {}
+
+# IP of the server
+INTERNAL_IP = socket.gethostbyname(socket.gethostname())
+
+# Amount of packets that have gone in and out
+# Global so they can be accessed from different scopes
+PACKETS_IN = 0
+PACKETS_OUT = 0
+
+class FlaskServer(threading.Thread):
+    """ Class that handles the Flask server,
+    used to show the webinterface """
+    def __init__(self, server_host, server_port):
         threading.Thread.__init__(self)
         self.event = threading.Event()
-        self.setDaemon(True) # so thread doesn't block when Snuffel() calls exit()
-        self.host = host
-        self.port = port
+        self.server_host = server_host
+        self.server_port = server_port
+        self.daemon = True
 
-    def inputCmdReceived(self, *args):
-        if args.verbose: print 'Incoming command: {}'.format(args[0]['cmd'])
-    
-    # sendMsg example:
-    #self.com.sendMsg(time.strftime("%H:%M:%S"), 'url', 'http://www.example.com')
-    def sendMsg(self, timestamp, msgType, msg):
-    	try:
-	    	self.socketIO.emit('newMsg', {'timestamp': timestamp, 'msgType': msgType, 'msg': msg})
-        except Exception:
-        	print "Couldn't send msg to frontend: no Socket.io connection?"
+    @APP.route('/socket.io/<path:remaining>')
+    def snuffel_socket(remaining):
+        socketio_manage(request.environ, {'/snuffel':Communication}, request)
+        return 'done'
+
+    @APP.route('/')
+    def main_page():
+        """ Show the main page in the webinterface """
+        return render_template('index.html') if len(CONNECTIONS) == 0 or ARGS.allow_multiple else render_template('in_use.html')
 
     def run(self):
-        if args.verbose: print 'Connecting to Socket.io on {}:{}'.format(self.host, self.port)
+        """ Start the Flask server """
         try:
-        	self.socketIO = SocketIO(self.host, self.port)
-        	self.socketIO.on('inputCmd', self.inputCmdReceived)
-        	self.socketIO.wait()
-        except Exception:
-        	if args.verbose: print "Couldn't connect to Socket.io"
+            if ARGS.verbose >= 1: print "Starting socket server on %s:%s" % (self.server_host, self.server_port)
+            while not self.event.is_set():
+                SocketIOServer((self.server_host, self.server_port), APP, resource="socket.io").serve_forever()
+        except Exception as e:
+            print "Can't start the server: ", e.strerror
+            self.stop()
+
+    def stop(self):
+        """ Stop the Flask server """
+        if ARGS.verbose >= 1: print "Stopping Flask server thread"
+        self.event.set()
 
 #======================================================
-# The main snuffel thread. At this point only
-# responds to keyboard input to for testing purposes
+# Socket communication namespace
 #======================================================
-class Snuffel(threading.Thread):
+class Communication(BaseNamespace, BroadcastMixin):
+    """ Class that handles communication with the
+    webinterface through the Flask server's socket connection """
+
+    def recv_connect(self):
+        """ Triggered wehen a client connects to the webinterface """
+        global CONNECTIONS
+        CONNECTIONS[id(self)] = self
+        self.broadcast_event('open_connections', {'value':len(CONNECTIONS)})
+
+    #======================================================
+    # Client disconnects
+    def recv_disconnect(self):
+        """ Triggered when a client disconnects """
+        try:
+            del CONNECTIONS[id(self)]
+            self.broadcast_event('open_connections', {'value':len(CONNECTIONS)})
+        except:
+            pass
+
+    def on_restart(self):
+        """ Triggered when webinterface requests Snuffel to restart the device """
+        if ARGS.verbose >= 1: print "Restart Snuffel device"
+        #os.system('sudo reboot')
+
+    def on_shutdown(self):
+        """ Triggered when webinterface requests Snuffel to shut down the device """
+        if ARGS.verbose >= 1: print "Shutdown Snuffel device"
+        #os.system('sudo shutdown -h now')
+
+    def on_toggle_sniffing(self, data):
+        """ Triggered when webinterface requests Snuffel to start / stop sniffing """
+        if ARGS.verbose >= 1: print "Start sniffing" if data else "Stop sniffing"
+
+    def on_get_statistics(self):
+        """ Triggered when webinterface requests statistics about the sniffing"""
+        if ARGS.verbose >= 1: print "get_statistics"
+        global STATISTICS
+        STATISTICS = [[u'Packets sent', PACKETS_OUT], [u'Packets received', PACKETS_IN]]
+        self.broadcast_event('get_statistics', json.dumps(STATISTICS))
+
+    def on_reset_statistics(self):
+        """ Triggered when webinterface requests to reset and clear the statistics """
+        if ARGS.verbose >= 1: print "reset_statistics"
+        global PACKETS_IN, PACKETS_OUT
+        PACKETS_IN = 0
+        PACKETS_OUT = 0
+
+
+    def on_get_available_networks(self):
+        """ Triggered when webinterface requests a list of available wifi networks """
+        if ARGS.verbose >= 1: print 'Requesting network list'
+        response = get_available_networks()
+        self.broadcast_event('get_available_networks', response)
+
+    def on_connect_to_network(self, data):
+        """ Triggered when webinterface requests Snuffel to connect to a specified wifi network """
+        connect_to_network(data['ssid'], data['passkey'])
+
+#======================================================
+# The packet retrieval and analyzer thread
+#======================================================
+class PacketAnalyzer(threading.Thread):
+    """ Class to analyze the wifi traffic, looking for URLs, images, etc. """
 
     def __init__(self):
         threading.Thread.__init__(self)
         self.event = threading.Event()
+        self.daemon = True
+        self.url_buffer = [] # Keeps track of the last 30 urls seen, to prevent doubles
 
-        # communication with the frontend
-        self.com = Communication()
-        self.com.start()
+        # Determine packetSource - live capture or pcap file
+        self.packetsource = None
+        if ARGS.capfile != None:
+            try:
+                with open(ARGS.capfile):
+                    if ARGS.verbose >= 1: print "Using file: %s" % ARGS.capfile
+                    self.packetsource = pyshark.FileCapture(ARGS.capfile, lazy=True)
+            except IOError:
+                print "Couldn't find or open the pcap file '%s'" % ARGS.capfile
+                exit()
+        else:
+            if ARGS.verbose >= 1: print "Starting capture on interface '%s'" % ARGS.interface
+            self.capture = pyshark.LiveCapture(interface=ARGS.interface)
+            self.packetsource = self.capture.sniff_continuously()
 
     def run(self):
-    	#check if capfile given and accessible, otherwise fall back to live capture
-    	if args.capfile != None:
-        	try:
-	        	with open(args.capfile):
-					if args.verbose: print "Using file: %s" % args.capfile
-                	capsource = pyshark.FileCapture(args.capfile, lazy=True)
-        	except IOError:
-				if args.verbose:
-					print "Couldn't find or open the pcap file '%s'" % args.capfile
-				exit()
-        else:
-        	if args.verbose: print "Starting capture on interface '%s'" % args.interface
-        	capture = pyshark.LiveCapture(interface=args.interface)
-        	capsource = capture.sniff_continuously()
-
-        # start capture and processing thread
-        self.packetflow = PacketFlow(com=self.com, packetsource=capsource)
-        self.packetflow.start()
-
-        while 1:
-            1 #keep thread alive.
-
-    def stop(self):
-        self.packetflow.stop()
-        self.event.set()
-        if args.verbose: print "Snuffel thread stopping"
-
-#======================================================
-# The packet retrieval and analyzer thread 
-#======================================================
-class PacketFlow(threading.Thread):
-
-    def __init__(self, com, packetsource, delay_packets=False):
-        threading.Thread.__init__(self)
-        self.event = threading.Event()
-        self.com = com
-        self.packetsource = packetsource
-        if DELAY_PACKETS:
-            self.delay_packets = DELAY_PACKETS
-        else:
-            self.delay_packets = delay_packets
-
-    def run(self):
+        global PACKETS_IN, PACKETS_OUT
         packet = None
 
         while not self.event.is_set():
-            next_packet = self.packetsource.next()
-            if self.delay_packets and packet is not None:
-                time_delta = next_packet.sniff_time - packet.sniff_time
-                if args.verbose: print "Sleeping %f seconds until next packet." % time_delta.total_seconds()
-                time.sleep(time_delta.total_seconds())
+            if not ARGS.capfile: # live capture
+                packet = self.packetsource.next()
+            else: # read from a pcap / pcapng file
+                next_packet = self.packetsource.next()
+                # wait original delay between packets if the -d flag
+                # has been set
+                if ARGS.delay_packets and packet is not None: 
+                    try: # skip delay if no sniff_time
+                        time_delta = next_packet.sniff_time - packet.sniff_time
+                        if ARGS.verbose >= 2: print "Sleeping %f seconds until next packet." % time_delta.total_seconds()
+                        time.sleep(time_delta.total_seconds())
+                    except Exception as e: print "Delay error: ", e
+                packet = next_packet
 
-            packet = next_packet
-            # maybe add multiple levels of verbose for this kind of message?
-            #if args.verbose: print next_packet.highest_layer
-            if next_packet.highest_layer == 'HTTP':
-                target = ''
+            # Only actually analyze packet when a client is connected
+            # or when in server mode. Otherwise, packet will be discarted
+            # without being analyzed, to prevent build up of old packets
+            if len(CONNECTIONS) > 0 or ARGS.server:
+                # Determine if a package was going in or out,
+                # and keep track of the amount of packages
                 try:
-                    target = packet.http.location
-                except Exception:
+                    if packet.ip.src == INTERNAL_IP:
+                        PACKETS_IN = PACKETS_IN + 1
+                except: pass
+                try:
+                    if packet.ip.dst == INTERNAL_IP:
+                        PACKETS_OUT = PACKETS_OUT   + 1
+                except: pass
+
+                # Some of the layer types seen but not used in the below if/elif structure
+                # DATA, BJNP, SSL, IMAGE-GIF, DATA-TEXT-LINES, PNG, IMAGE-JFIF, ARP, NBNS, MEDIA
+
+                # Skip malformed packages, as their contents
+                # might break stuff
+                if packet.highest_layer.upper() == 'MALFORMED':
+                    continue
+
+                # Search for probe requests in the WLAN_MGT layer
+                elif packet.highest_layer.upper() == "WLAN_MGT":
                     try:
-                        target = packet.http.request_full_uri
-                    except Exception:
-                        pass;
+                        ssid = self.get_ssid_from_wlan_mgt(packet.wlan_mgt)
+                        if ssid != None:
+                            self.send_new_item('probe_request', ssid)
+                    except: pass
 
-                # remove possible trailing slash to prevent saving url multiple times
-                if target[-1:] == '/': target = target[0:-1]
-                print target
-                fileName, fileExtension = os.path.splitext(target)
+                # This layer is unique for the Dropbox client
+                elif packet.highest_layer == 'DB-LSP-DISC':
+                    if ARGS.verbose >= 2: print "Service: Dropbox"
+                    self.send_new_item('service', 'dropbox')
 
-                if target != '' and target not in urls_used:
-                    urls_used.append(target)
-                    # Check if image or 'something else' (a url to some file)
-                    if any(x in target for x in image_file_extentions):
-                        self.com.sendMsg(time.strftime("%H:%M:%S"), 'img', target)
+                # Search for and handle URLS in the HTTP layer
+                elif packet.highest_layer == 'HTTP':
+                    url = ''
+                    try:
+                        url = packet.http.location
+                    except:
+                        try:
+                            url = packet.http.request_full_uri
+                        except: pass
+
+                    # Check if the found url is not empty, doesn't contain keywords
+                    # from IGNORE_KEYWORDS, and does not end in anything from URL_IGNORE_ENDINGS
+                    if url != '' and all(x not in url.lower() for x in IGNORE_KEYWORDS)\
+                        and not any(url.endswith(x) for x in URL_IGNORE_ENDINGS):
+
+                        # Ignore if url was included in the last 30 urls seen,
+                        # to prevent too many doubles
+                        if not url in self.url_buffer:
+                            self.url_buffer.append(url)
+                            if len(self.url_buffer) > 30: self.url_buffer.pop(0)
+
+                            # Check if the URL is an image, or webpage / file
+                            try:
+                                if 'image' in packet.http.accept or any(url.endswith(x) for x in IMAGE_FILE_EXTENTIONS):
+                                    if ARGS.verbose >= 2: print "Image: %s" % url
+                                    self.send_new_item('img', url)
+                                else:
+                                    if ARGS.verbose >= 2: print "Website: %s" % url
+                                    self.send_new_item('url', url)
+                            except: pass
                     else:
-                        if all(x not in target for x in ignore_extentions):
-                            1 # in ignore list so skip, would be cleaner to turn
-                            self.com.sendMsg(time.strftime("%H:%M:%S"), 'url', target)
+                        if ARGS.verbose >= 3 and url != '': print "Ignore: %s" % url
 
+                # Try to get a hostname
+                elif packet.highest_layer == 'BOOTP':
+                    hostname = self.get_hostname_from_bootp(packet.bootp, packet.ip.src)
+                    if hostname != None:
+                        self.send_new_item('hostname', hostname)
+
+                # Get imap info, not analyzed yet
+                elif packet.highest_layer == 'IMAP':
+                    self.send_new_item('email', 'IMAP something')
 
     def stop(self):
+        """ Stop the packet analyzer """
         self.event.set()
-        if args.verbose: print "PacketFlow thread stopping"
 
+    # Kind of a hack, but I didn't find another way to access this data
+    def get_ssid_from_wlan_mgt(self, obj):
+        """ Search for an SSID in the wlan_mgt layer
+        of a probe request """
+        for child in obj.xml_obj.getchildren():
+            for grandchild in child.iterchildren():
+                for greatgrandchild in grandchild.iterchildren():
+                    if "SSID: " in greatgrandchild.attrib['showname']:
+                        ssid = greatgrandchild.attrib['showname'][6:]
+                        if ssid not in SEEN_SSID_REQUESTS and len(ssid) > 0 and "[truncated]" not in ssid:
+                            SEEN_SSID_REQUESTS.append(ssid)
+                            return ssid
+                        else: return None # Return None to end these for loops
+
+    # almost the same as the get_ssid_from_wlan_mgt function,
+    # but one level less deep
+    def get_hostname_from_bootp(self, obj, packet_ip):
+        """ Search for a hostname in the BOOTP layer
+        and match it to an IP if possible """
+        for child in obj.xml_obj.getchildren():
+            for grandchild in child.iterchildren():
+                if "Host Name: " in grandchild.attrib['showname']:
+                    hostname = grandchild.attrib['show']
+                    if hostname not in SEEN_HOSTNAMES and len(hostname) > 0 and "[truncated]" not in hostname:
+                        SEEN_HOSTNAMES.append(hostname)
+                        if packet_ip != "0.0.0.0":
+                            if ARGS.verbose >= 3: print "Matched hostname %s with ip %s" % (hostname, packet_ip)
+                            global IP_TO_HOSTNAME
+                            IP_TO_HOSTNAME[packet_ip] = hostname
+                        return hostname
+                    else: return None # Return None to end these for loops
+
+    def send_new_item(self, item_type, item_value):
+
+        """ Send a message to the webinterface """
+        # This Try:Except is for debugging and should be removed in the end,
+        # as messages shouldn't be able to brake anything
+        try:
+            item_time = time.strftime("%H:%M:%S")
+            if ARGS.verbose >= 3: print "Sending item: %s, %s" % (item_type, item_value)
+            if ARGS.output_file: os.system('echo "%s,%s,%s" >> %s' % (item_time, item_type, item_value, ARGS.output_file))
+            if len(CONNECTIONS) > 0:
+                CONNECTIONS.values()[0].broadcast_event('new_item', {'itemType':item_type, 'itemValue':item_value, 'itemTime':item_time})
+        except Exception as e: print e
+
+
+#======================================================
+# Functions dealing with the wifi network
+#======================================================
+def get_available_networks():
+    """ Returns a list of available wifi networks """
+    try:
+        ssids = [[cell.ssid, cell.encrypted] for cell in Cell.all('wlan1')]
+    except:
+        print "Error getting available; is iwlist available on your machine?"
+        sys.exit(0)
+    json_output = json.dumps(ssids)
+    return json_output
+
+def connect_to_network(ssid, passkey=""):
+    """ Try to connect to the given wifi network """
+    if ARGS.verbose >= 1: print "Connect to %s with passKey '%s'" % (ssid, passkey)
+    #fake a network list, as OSX doesn't have iwlist
+    # I should be able to create this list in one line, right?
+    try:
+        cells = Cell.all('wlan1')
+    except:
+        print "Error connecting to wifi; is iwlist available on your machine?"
+        sys.exit(0)
+
+    for cell in cells:
+        print "CHECK %s with %s" % (cell.ssid, ssid)
+        if cell.ssid == ssid:
+            if passkey != "":
+                scheme = Scheme.for_cell('wlan1', ssid, cell, passkey)
+            else:
+                scheme = Scheme.for_cell('wlan1', ssid, cell)
+            scheme.save()
+            scheme.activate()
+
+#======================================================
+# Start the program
+#======================================================
 def main():
-    snuffel = Snuffel()
-    snuffel.start()
+    """ Main function that starts the Flask server and
+    the packet analyzer
+    """
+    try:
+        flask_server = FlaskServer(ARGS.server_host, ARGS.server_port)
+        flask_server.start()
+
+        packet_analyzer = PacketAnalyzer()
+        packet_analyzer.start()
+
+        while not flask_server.event.isSet() and not packet_analyzer.event.isSet():
+            # Loop while the threads are running
+            time.sleep(100)
+
+    except (KeyboardInterrupt, SystemExit):
+        flask_server.stop()
+        sys.exit("Received keyboard interrupt, Snuffel will now quit.")
 
 if __name__ == "__main__":
     main()
