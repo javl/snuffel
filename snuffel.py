@@ -244,12 +244,15 @@ class PacketAnalyzer(threading.Thread):
             if len(CONNECTIONS) > 0 or ARGS.server:
                 # Determine if a package was going in or out,
                 # and keep track of the amount of packages
+                packet_source = ""
                 try:
                     if packet.ip.src == self.own_ip:
+                        packet_source = packet.ip.src
                         PACKETS_IN = PACKETS_IN + 1
                 except: pass
                 try:
                     if packet.ip.dst == self.own_ip:
+                        packet_source = packet.ip.dst
                         PACKETS_OUT = PACKETS_OUT   + 1
                 except: pass
 
@@ -266,13 +269,13 @@ class PacketAnalyzer(threading.Thread):
                     try:
                         ssid = self.get_ssid_from_wlan_mgt(packet.wlan_mgt)
                         if ssid != None:
-                            self.send_new_item('probe_request', ssid)
+                            self.send_new_item('probe_request', ssid, packet_source)
                     except: pass
 
                 # This layer is unique for the Dropbox client
                 elif packet.highest_layer == 'DB-LSP-DISC':
                     if ARGS.verbose >= 2: print "Service: Dropbox"
-                    self.send_new_item('service', 'dropbox')
+                    self.send_new_item('service', 'dropbox', packet_source)
 
                 # Search for and handle URLS in the HTTP layer
                 elif packet.highest_layer == 'HTTP':
@@ -299,10 +302,10 @@ class PacketAnalyzer(threading.Thread):
                             try:
                                 if 'image' in packet.http.accept or any(url.endswith(x) for x in self.image_extentions):
                                     if ARGS.verbose >= 2: print "Image: %s" % url
-                                    self.send_new_item('img', url)
+                                    self.send_new_item('img', url, packet_source)
                                 else:
                                     if ARGS.verbose >= 2: print "Website: %s" % url
-                                    self.send_new_item('url', url)
+                                    self.send_new_item('url', url, packet_source)
                             except: pass
                     else:
                         if ARGS.verbose >= 3 and url != '': print "Ignore: %s" % url
@@ -311,11 +314,11 @@ class PacketAnalyzer(threading.Thread):
                 elif packet.highest_layer == 'BOOTP':
                     hostname = self.get_hostname_from_bootp(packet.bootp, packet.ip.src)
                     if hostname != None:
-                        self.send_new_item('hostname', hostname)
+                        self.send_new_item('hostname', hostname, packet_source)
 
                 # Get imap info, not analyzed yet
                 elif packet.highest_layer == 'IMAP':
-                    self.send_new_item('email', 'IMAP something')
+                    self.send_new_item('email', 'IMAP something', packet_source)
 
     def stop(self):
         """ Stop the packet analyzer """
@@ -353,8 +356,17 @@ class PacketAnalyzer(threading.Thread):
                         return hostname
                     else: return None # Return None to end these for loops
 
-    def send_new_item(self, item_type, item_value):
-        """ Send a message to the webinterface """
+    def send_new_item(self, item_type, item_value, device_id):
+        """ Send a message to the webinterface
+        :item_type: type of message (url, img, etc.)
+        :item_value: what text to display
+
+        """
+        if item_type == 'hostname':
+            device_id = item_value
+        elif device_id in IP_TO_HOSTNAME:
+            device_id = IP_TO_HOSTNAME[device_id]
+
         # This Try:Except is for debugging and should be removed in the end,
         # as messages shouldn't be able to brake anything
         try:
@@ -362,7 +374,8 @@ class PacketAnalyzer(threading.Thread):
             if ARGS.verbose >= 3: print "Sending item: %s, %s" % (item_type, item_value)
             if ARGS.output_file: os.system('echo "%s,%s,%s" >> %s' % (item_time, item_type, item_value, ARGS.output_file))
             if len(CONNECTIONS) > 0:
-                CONNECTIONS.values()[0].broadcast_event('new_item', {'itemType':item_type, 'itemValue':item_value, 'itemTime':item_time})
+                CONNECTIONS.values()[0].broadcast_event('new_item', {'item_type':item_type, 'item_value':item_value,
+                    'item_time':item_time, 'device_id':device_id})
         except Exception as e: print e
 
 

@@ -12,7 +12,7 @@ var socket = io.connect('/snuffel');
 //==========================================================
 // Show a simple dialog with a message and optional progressbar
 //==========================================================
-function set_generic_dialog(title, message, showProgressbar, buttonText='Cancel'){
+function set_generic_dialog(title, message, showProgressbar, buttonText){
 	$('.genericDialog').dialog('option', 'title', title);
 	$('.genericDialog').dialog('option', 'message', "FOOBAR");
 	$('.genericDialog').parent().find('.ui-button-text').text(buttonText);
@@ -79,34 +79,38 @@ $(document).ready(function() {
 
 	//==========================================================
 	// Receive a new message
-	// data = {itemType, itemValue, itemTime}
+	// data = {item_type, item_value, item_time}
 	//==========================================================
 	socket.on('new_item', function ( data ) {
 		var obj = '<div class="message">';
+		console.log(data);
+		if (data.device_id != ''){
+			data.device_id = data.device_id+' - ';
+		}
 		obj += '<div class="titleBar floatFix">';
-		if(data.itemType === 'url'){
-			obj += '<div class="title">URL found</div><div class="time">'+data.itemTime+'</div></div>';
-			obj += '<div class="contents">'+data.itemValue+'</div>';
-		}else if(data.itemType === 'img'){
-			obj +='<div class="title">Image found</div><div class="time">'+data.itemTime+'</div></div>';
-			obj +='<div class="contents"><img src="'+data.itemValue+'" /></div>';
-		}else if(data.itemType === 'service'){
-			obj +='<div class="title">Service found</div><div class="time">'+data.itemTime+'</div></div>';
-			obj +='<div class="contents">'+data.itemValue+'</div>';
-		}else if(data.itemType === 'tracker'){
-			obj +='<div class="title">Tracker found</div><div class="time">'+data.itemTime+'</div></div>';
-			obj +='<div class="contents">'+data.itemValue+'</div>';
-		}else if(data.itemType === 'probe_request'){
-			obj +='<div class="title">Probe request found</div><div class="time">'+data.itemTime+'</div></div>';
-			obj +='<div class="contents">'+data.itemValue+'</div>';
-		}else if(data.itemType === 'hostname'){
-			obj +='<div class="title">Hostname found</div><div class="time">'+data.itemTime+'</div></div>';
-			obj +='<div class="contents">'+data.itemValue+'</div>';
+		if(data.item_type === 'url'){
+			obj += '<div class="title">URL found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj += '<div class="contents">'+data.item_value+'</div>';
+		}else if(data.item_type === 'img'){
+			obj +='<div class="title">Image found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="contents"><img src="'+data.item_value+'" /></div>';
+		}else if(data.item_type === 'service'){
+			obj +='<div class="title">Service found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="contents">'+data.item_value+'</div>';
+		}else if(data.item_type === 'tracker'){
+			obj +='<div class="title">Tracker found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="contents">'+data.item_value+'</div>';
+		}else if(data.item_type === 'probe_request'){
+			obj +='<div class="title">Probe request found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="contents">'+data.item_value+'</div>';
+		}else if(data.item_type === 'hostname'){
+			obj +='<div class="title">Hostname found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="contents">'+data.item_value+'</div>';
 		}
 		obj +='</div>';
 		//$( ".messagesHolder" ).prepend(obj);
 		$( ".messagesHolder" ).prepend(obj);
-		$('.messages').html('timestamp: '+data.itemTime+'<br />'+'msgType: '+data.itemType+'<br />'+'message: '+data.itemValue+'<br />');
+		$('.messages').html('timestamp: '+data.item_time+'<br />'+'msgType: '+data.item_type+'<br />'+'message: '+data.item_value+'<br />');
 	});
 
 	//==========================================================
@@ -164,7 +168,7 @@ $(document).ready(function() {
 			{
 				text: 'Export', click: function() {
 					$(this).dialog('close');
-					set_generic_dialog('Exporting', 'Exporting statistics isn\'t implemented yet.', true);
+					set_generic_dialog('Exporting', 'Exporting statistics isn\'t implemented yet.', true, 'Cancel');
 				}
 			},
 			{
@@ -209,7 +213,7 @@ $(document).ready(function() {
 					if(selected_network == 'Select a wifi-network'){
 						set_generic_dialog('Error', 'Please select a network from the list.', false, 'OK');
 					}else{
-						set_generic_dialog('Connecting', 'Connecting to <b>'+selected_network+'</b>...', true);
+						set_generic_dialog('Connecting', 'Connecting to <b>'+selected_network+'</b>...', true, 'Cancel');
 						socket.emit('connect_to_network', {
 							//'networkIndex': index,
 							'ssid': selected_network,
@@ -221,7 +225,7 @@ $(document).ready(function() {
 			{
 				text: "Rescan", click: function() {
 					$(this).dialog('close');
-					set_generic_dialog('Scanning', 'Scanning for wifi networks...', true);
+					set_generic_dialog('Scanning', 'Scanning for wifi networks...', true, 'Cancel');
 					waitingForWifiList = true;
 		            socket.emit('get_available_networks')
 				}
@@ -260,7 +264,7 @@ $(document).ready(function() {
 		switch ($(this).data('action')){
 			case 'setup_wifi':
 				if($('.mainMenuDialog').dialog('isOpen')) $('.mainMenuDialog').dialog('close');
-				set_generic_dialog('Scanning', 'Scanning for wifi networks...', true);
+				set_generic_dialog('Scanning', 'Scanning for wifi networks...', true, 'Cancel');
 				waitingForWifiList = true;
         		socket.emit('get_available_networks')
 				break;
