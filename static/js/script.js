@@ -106,6 +106,9 @@ $(document).ready(function() {
 		}else if(data.item_type === 'hostname'){
 			obj +='<div class="title">Hostname found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
 			obj +='<div class="contents">'+data.item_value+'</div>';
+		}else{
+			obj +='<div class="title">Unknown item_type: '+data.item_type+'</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="contents">'+data.item_value+'</div>';
 		}
 		obj +='</div>';
 		//$( ".messagesHolder" ).prepend(obj);
