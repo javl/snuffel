@@ -54,11 +54,15 @@ $(document).ready(function() {
 	// data = {{wifiNetworks}}
 	//==========================================================
 	socket.on('get_available_networks', function ( data ){
-        $('.wifiNetworkList').html('').append("<option selected='true' disabled='disabled'>Select a wifi-network</option>");
-        $.parseJSON(data).forEach(function(item) { // build list of network names
-        	item[1] ? isProtected = true : isProtected = false;
-            $('.wifiNetworkList').append("<option data-protected='"+isProtected+"' value='"+item[0]+"'>"+item[0]+"</option>");
-        });
+		if (data != '[]'){
+	        $('.wifiNetworkList').html('').append("<option selected='true' disabled='disabled'>Select a wifi-network</option>");
+	        $.parseJSON(data).forEach(function(item) { // build list of network names
+	        	item[1] ? isProtected = true : isProtected = false;
+	            $('.wifiNetworkList').append("<option data-protected='"+isProtected+"' value='"+item[0]+"'>"+item[0]+"</option>");
+	        });
+		}else{
+        	$('.wifiNetworkList').html('').append("<option selected='true' disabled='disabled'>No networks found.</option>");
+	    }
 		if(!waitingForWifiList) return;
 		if($('.genericDialog').dialog('isOpen')) $('.genericDialog').dialog('close');
 		$('.wifiSelectionDialog').dialog('open');

@@ -182,6 +182,7 @@ class Communication(BaseNamespace, BroadcastMixin):
         """ Triggered when webinterface requests a list of available wifi networks """
         if ARGS.verbose >= 1: print 'Requesting network list'
         response = get_available_networks()
+        if ARGS.verbose >= 2: print response
         self.broadcast_event('get_available_networks', response)
 
     def on_connect_to_network(self, data):
@@ -387,31 +388,30 @@ def get_available_networks():
     try:
         ssids = [[cell.ssid, cell.encrypted] for cell in Cell.all('wlan1')]
     except:
-        print "Error getting available; is iwlist available on your machine?"
-        sys.exit(0)
+        print "Error getting available networks; is iwlist available on your machine?"
     json_output = json.dumps(ssids)
     return json_output
 
 def connect_to_network(ssid, passkey=""):
     """ Try to connect to the given wifi network """
     if ARGS.verbose >= 1: print "Connect to %s with passKey '%s'" % (ssid, passkey)
-    #fake a network list, as OSX doesn't have iwlist
-    # I should be able to create this list in one line, right?
     try:
         cells = Cell.all('wlan1')
     except:
         print "Error connecting to wifi; is iwlist available on your machine?"
-        sys.exit(0)
 
     for cell in cells:
         print "CHECK %s with %s" % (cell.ssid, ssid)
         if cell.ssid == ssid:
+            print "Selected nework found, connecting."
             if passkey != "":
                 scheme = Scheme.for_cell('wlan1', ssid, cell, passkey)
             else:
                 scheme = Scheme.for_cell('wlan1', ssid, cell)
             scheme.save()
             scheme.activate()
+        return
+    if ARGS.verbose >= 1: print "Not able to find the selected network."
 
 #======================================================
 # Start the program
