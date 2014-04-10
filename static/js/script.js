@@ -88,30 +88,30 @@ $(document).ready(function() {
 	socket.on('new_item', function ( data ) {
 		var obj = '<div class="message">';
 		console.log(data);
-		if (data.device_id != ''){
-			data.device_id = data.device_id+' - ';
+		if (data.msg_source != ''){
+			data.msg_source = data.msg_source+' - ';
 		}
 		obj += '<div class="titleBar floatFix">';
 		if(data.item_type === 'url'){
-			obj += '<div class="title">URL found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj += '<div class="title">URL found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj += '<div class="contents">'+data.item_value+'</div>';
 		}else if(data.item_type === 'img'){
-			obj +='<div class="title">Image found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="title">Image found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj +='<div class="contents"><img src="'+data.item_value+'" /></div>';
 		}else if(data.item_type === 'service'){
-			obj +='<div class="title">Service found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="title">Service found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj +='<div class="contents">'+data.item_value+'</div>';
 		}else if(data.item_type === 'tracker'){
-			obj +='<div class="title">Tracker found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="title">Tracker found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj +='<div class="contents">'+data.item_value+'</div>';
 		}else if(data.item_type === 'probe_request'){
-			obj +='<div class="title">Probe request found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="title">Probe request found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj +='<div class="contents">'+data.item_value+'</div>';
 		}else if(data.item_type === 'hostname'){
-			obj +='<div class="title">Hostname found</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="title">Hostname found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj +='<div class="contents">'+data.item_value+'</div>';
 		}else{
-			obj +='<div class="title">Unknown item_type: '+data.item_type+'</div><div class="time">'+data.device_id+data.item_time+'</div></div>';
+			obj +='<div class="title">Unknown item_type: '+data.item_type+'</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj +='<div class="contents">'+data.item_value+'</div>';
 		}
 		obj +='</div>';

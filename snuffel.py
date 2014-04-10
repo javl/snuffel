@@ -357,16 +357,17 @@ class PacketAnalyzer(threading.Thread):
                         return hostname
                     else: return None # Return None to end these for loops
 
-    def send_new_item(self, item_type, item_value, device_id):
+    def send_new_item(self, item_type, item_value, msg_source):
         """ Send a message to the webinterface
         :item_type: type of message (url, img, etc.)
         :item_value: what text to display
 
         """
+        print "Source: %s" % msg_source
         if item_type == 'hostname':
-            device_id = item_value
-        elif device_id in IP_TO_HOSTNAME:
-            device_id = IP_TO_HOSTNAME[device_id]
+            msg_source = item_value
+        elif msg_source in IP_TO_HOSTNAME:
+            msg_source = IP_TO_HOSTNAME[msg_source]
 
         # This Try:Except is for debugging and should be removed in the end,
         # as messages shouldn't be able to brake anything
@@ -376,7 +377,7 @@ class PacketAnalyzer(threading.Thread):
             if ARGS.output_file: os.system('echo "%s,%s,%s" >> %s' % (item_time, item_type, item_value, ARGS.output_file))
             if len(CONNECTIONS) > 0:
                 CONNECTIONS.values()[0].broadcast_event('new_item', {'item_type':item_type, 'item_value':item_value,
-                    'item_time':item_time, 'device_id':device_id})
+                    'item_time':item_time, 'msg_source':msg_source})
         except Exception as e: print e
 
 
