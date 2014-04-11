@@ -159,10 +159,11 @@ class Communication(BaseNamespace, BroadcastMixin):
         if ARGS.verbose >= 1: print "Shutdown Snuffel device"
         #os.system('sudo shutdown -h now')
 
-    def on_toggle_sniffing(self, data):
-        """ Triggered when webinterface requests Snuffel to start / stop sniffing """
-        if ARGS.verbose >= 1: print "Start sniffing" if data else "Stop sniffing"
-
+    
+    #def on_toggle_sniffing(self, data):
+    #    """ Triggered when webinterface requests Snuffel to start / stop sniffing """
+    #    if ARGS.verbose >= 1: print "Start sniffing" if data else "Stop sniffing"
+    #
     def on_get_statistics(self):
         """ Triggered when webinterface requests statistics about the sniffing"""
         if ARGS.verbose >= 1: print "get_statistics"
@@ -203,7 +204,7 @@ class PacketAnalyzer(threading.Thread):
         self.own_ip = socket.gethostbyname(socket.gethostname())
         self.image_extentions = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.svg', '.ico']
         self.url_ignore_endings = ['.js', '.css', '.woff', '.eot', '.ttf']
-        self.ignore_keywords = ['min.js', 'min.css', '.js?', '.css?']
+        self.ignore_keywords = [ARGS.server_host, 'min.js', 'min.css', '.js?', '.css?']
 
         # Determine packetSource - live capture or pcap file
         self.packetsource = None

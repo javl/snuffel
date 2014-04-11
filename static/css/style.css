@@ -12,6 +12,42 @@
 		padding: 1em;
 		margin-bottom: 1em;
 	}
+
+	.servicesMessagesHolder, .imageMessagesHolder, .textMessagesHolder{
+		width: 50%;
+	}
+	.servicesMessagesHolder{
+		position: absolute 0 0;
+		height: 16%;
+		background-color: red;
+	}
+	.imageMessagesHolder{
+		position: absolute;
+		left: 50%;
+		top: 0;
+		height: 100%;
+		background-color: green;
+		overflow: scroll;
+		background-image: url('images/background-pattern.jpg');
+		background-repeat: repeat;
+	}
+	.textMessagesHolder{
+		height: 42%;
+		background-color: white;
+		overflow-x: hidden;
+		overflow-y: scroll;
+	}
+	.imageMessagesHolder .message {
+		/*float: left;*/
+	}
+	.imageMessagesHolder img{
+		float: left;
+		width: 33%;
+/*		min-width: 20%;
+		max-width: 50%;
+*/	}
+
+
 	.hidden{
 		display: none;
 	}
@@ -68,19 +104,14 @@
 		padding-top: 6%;
 	}
 	.message{
-		padding: 1%;
+/*		padding: 1%;
 		margin-bottom: 2%;
-		background-color: white;
-		border: 1px solid black;
-	}
+*/	}
 	.message .title{
 		font-size: 1.2em;
 		font-weight: bold;
 		float: left;
 		line-height: 1.4em;
-	}
-	.message .contents img{
-		max-width: 100%;
 	}
 	.message .time{
 		float: right;
