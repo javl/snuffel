@@ -50,7 +50,7 @@ PARSER.add_argument('-f', metavar='filepath', dest="capfile", action='store',\
 help='Read from a pcap file instead of live capture.')
 PARSER.add_argument('-d', dest="delay_packets", action='store_true',\
 help="Use the original delay between packets when reading from a file.")
-PARSER.add_argument('-h', default='localhost', dest="server_host", metavar='host',\
+PARSER.add_argument('-h', default='10.0.0.1', dest="server_host", metavar='host',\
 help="Set host address for the webserver. Defaults to 10.0.0.1", action='store')
 PARSER.add_argument('-p', default=8080, type=int, dest="server_port", metavar='port',\
 help="Set port number for the webserver. Defaults to 8080.", action='store')
@@ -343,19 +343,21 @@ class PacketAnalyzer(threading.Thread):
     # but one level less deep
     def get_hostname_from_bootp(self, obj, packet_ip):
         """ Search for a hostname in the BOOTP layer
-        and match it to an IP if possible """        
-        for child in obj.xml_obj.getchildren():
-            for grandchild in child.iterchildren():
-                if "Host Name: " in grandchild.attrib['showname']:
-                    hostname = grandchild.attrib['show']
-                    if hostname not in SEEN_HOSTNAMES and len(hostname) > 0 and "[truncated]" not in hostname:
-                        SEEN_HOSTNAMES.append(hostname)
-                        if packet_ip != "0.0.0.0": # If we know where it came from, store the hostname / ip relation
-                            if ARGS.verbose >= 3: print "Matched hostname %s with ip %s" % (hostname, packet_ip)
-                            global IP_TO_HOSTNAME                            
-                            IP_TO_HOSTNAME[packet_ip] = hostname
-                        return hostname
-                    else: return None # Return None to end these for loops
+        and match it to an IP if possible """
+        try:      
+            for child in obj.xml_obj.getchildren():
+                for grandchild in child.iterchildren():
+                    if "Host Name: " in grandchild.attrib['showname']:
+                        hostname = grandchild.attrib['show']
+                        if hostname not in SEEN_HOSTNAMES and len(hostname) > 0 and "[truncated]" not in hostname:
+                            SEEN_HOSTNAMES.append(hostname)
+                            if packet_ip != "0.0.0.0": # If we know where it came from, store the hostname / ip relation
+                                if ARGS.verbose >= 3: print "Matched hostname %s with ip %s" % (hostname, packet_ip)
+                                global IP_TO_HOSTNAME                            
+                                IP_TO_HOSTNAME[packet_ip] = hostname
+                            return hostname
+                        else: return None # Return None to end these for loops
+        except: return None
 
     def send_new_item(self, item_type, item_value, msg_source):
         """ Send a message to the webinterface
