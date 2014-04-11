@@ -202,7 +202,7 @@ class PacketAnalyzer(threading.Thread):
         self.seen_url_buffer = [] # Keeps track of the last 25 urls seen, to prevent doubles
         self.own_ip = socket.gethostbyname(socket.gethostname())
         self.image_extentions = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.svg', '.ico']
-        self.url_ignore_endings = ['.js', '.css', '.woff', '.eot']
+        self.url_ignore_endings = ['.js', '.css', '.woff', '.eot', '.ttf']
         self.ignore_keywords = ['min.js', 'min.css', '.js?', '.css?']
 
         # Determine packetSource - live capture or pcap file
@@ -291,13 +291,13 @@ class PacketAnalyzer(threading.Thread):
                     # Check if the found url is not empty, doesn't contain keywords
                     # from ignore_keywords, and does not end in anything from url_ignore_endings
                     if url != '' and all(x not in url.lower() for x in self.ignore_keywords)\
-                        and not any(url.endswith(x) for x in self.url_ignore_endings):
+                        and not any(url.lower().endswith(x) for x in self.url_ignore_endings):
 
                         # Ignore if url was included in the last 25 urls seen,
                         # to prevent too many doubles
                         if not url in self.seen_url_buffer:
                             self.seen_url_buffer.append(url)
-                            if len(self.seen_url_buffer) > 25: self.seen_url_buffer.pop(0)
+                            if len(self.seen_url_buffer) > 50: self.seen_url_buffer.pop(0)
 
                             # Check if the URL is an image, or webpage / file
                             try:
