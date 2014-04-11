@@ -51,7 +51,7 @@ help='Read from a pcap file instead of live capture.')
 PARSER.add_argument('-d', dest="delay_packets", action='store_true',\
 help="Use the original delay between packets when reading from a file.")
 PARSER.add_argument('-h', default='localhost', dest="server_host", metavar='host',\
-help="Set host address for the webserver. Defaults to localhost.", action='store')
+help="Set host address for the webserver. Defaults to 10.0.0.1", action='store')
 PARSER.add_argument('-p', default=8080, type=int, dest="server_port", metavar='port',\
 help="Set port number for the webserver. Defaults to 8080.", action='store')
 PARSER.add_argument('-v', dest="verbose", action='count',\
