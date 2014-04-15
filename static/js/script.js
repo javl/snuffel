@@ -169,10 +169,22 @@ $(document).ready(function() {
 			obj +='<div class="contents">'+data.item_value+'</div></div>';
 			$( ".textMessagesHolder" ).prepend(obj);
 		}else if(data.item_type === 'hostname'){
+			/*
 			var obj = '<div class="message">';
 			obj +='<div class="title">Hostname found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj +='<div class="contents">'+data.item_value+'</div></div>';
 			$( ".textMessagesHolder" ).prepend(obj);
+			*/
+			var obj = '<div class="message message'+(urlLineColor*=-1)+'">';
+			//obj += '<div class="title">URL found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
+			//obj += '<div class="contents">'+data.item_value+'</div></div>';
+			obj += '<b>Hostname: </b>'+data.item_value + '</div>';
+			$( ".textMessagesHolder" ).prepend(obj);
+			if($('.textMessagesHolder .message').length > 40){
+				$('.textMessagesHolder').children().last().remove();
+			}
+
+
 		}else if(data.item_type === 'email'){
 
 		}else{
