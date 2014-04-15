@@ -26,6 +26,28 @@ function set_generic_dialog(title, message, showProgressbar, buttonText){
 //==========================================================
 $(document).ready(function() {
 
+	$(".fancybox").fancybox({
+		live: true,
+		openEffect	: 'none',
+		closeEffect	: 'none',
+		closeClick : true,
+		minSize: 20,
+		helpers : {
+        	overlay : {
+            	css : {
+                	'background' : 'rgba(100, 100, 100, 0.8)'
+            	}
+        	}
+    	}
+	});
+
+	// var hammertime = Hammer($('body'));
+    // console.log(hammertime);
+
+    // the whole area
+    // hammertime.on("tap swipeleft drag", function(ev) {
+        // if(window.console) { console.log(ev); }
+	// });
 
 	//==========================================================
 	// On connect / disconnect toggle notification color
@@ -85,54 +107,56 @@ $(document).ready(function() {
 	//==========================================================
 	// Receive a new message
 	// data = {item_type, item_value, item_time}
-
+	urlLineColor = 1;
 	socket.on('new_item', function ( data ) {
 		if (data.msg_source != ''){
 			data.msg_source = data.msg_source+' - ';
 		}
 		//obj += '<div class="titleBar floatFix">';
 		if(data.item_type === 'url'){
-			var obj = '<div class="message">';
+			var obj = '<div class="message message'+(urlLineColor*=-1)+'">';
 			//obj += '<div class="title">URL found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			//obj += '<div class="contents">'+data.item_value+'</div></div>';
 			obj += data.item_value + '</div>';
 			$( ".textMessagesHolder" ).prepend(obj);
+			if($('.textMessagesHolder .message').length > 40){
+				$('.textMessagesHolder').children().last().remove();
+			}
+
+
 		}else if(data.item_type === 'img'){
 			//var obj = '<div class="message">';
 			//obj +='<div class="title">Image found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
-			var obj = '<img class="siteImage hidden" src="'+data.item_value+'" />';
-			//obj +='</div>';
+			var obj = '<a class="fancybox" href="'+data.item_value+'">';
+			obj += '<img class="siteImage hidden" src="'+data.item_value+'" />';
+			obj += '</a>';
 			$( ".imageMessagesHolder" ).prepend(obj);
-			// Create new offscreen image to test
-			var el = $( ".imageMessagesHolder" ).children().first();
+			// Create new offscreen image to test size of image and 
+			// decide if the image should be shown
+			var el = $( ".imageMessagesHolder" ).children().first().find('img');
 			var theImage = new Image();
 			theImage.src = el.attr("src");
 			$(theImage).data("original",el);
-
 			$(theImage).load(function(){
 				var imageWidth = this.width;
 				var imageHeight = this.height;
 				if(imageWidth > 20 && imageHeight > 20){
+					if(imageWidth < 100 || imageHeight < 100){
+						$($(this).data('original')).addClass('siteImageSmall');
+					}
 					$($(this).data('original')).show();
+					if($('.imageMessagesHolder .siteImage').length > 40){
+						$('.imageMessagesHolder').children().last().remove();
+					}
 				}else{
-					$($(this).data('original')).remove();
+					$($(this).data('original')).parent().remove();
 				}
 			});			
-
-
-
-
-			/*
-			$( ".siteImage" ).on( "load", function() {
-				alert('loaded');
-				$(this).css('border', '5px solid red');
-			});
-			*/
-
 		}else if(data.item_type === 'service'){
-			var obj = '<div class="message">';
-			obj +='<div class="title">Service found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
-			obj +='<div class="contents">'+data.item_value+'</div></div>';
+			var obj = '<img class="serviceIcon" src="/static/icons/'+data.item_value+'.png" />';
+			if($('.servicesMessagesHolder .serviceIcon').length > 6){
+				$('.servicesMessagesHolder').children().last().remove();
+			}
 			$( ".servicesMessagesHolder" ).prepend(obj);
 		}else if(data.item_type === 'tracker'){
 			var obj = '<div class="message">';
@@ -149,6 +173,8 @@ $(document).ready(function() {
 			obj +='<div class="title">Hostname found</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
 			obj +='<div class="contents">'+data.item_value+'</div></div>';
 			$( ".textMessagesHolder" ).prepend(obj);
+		}else if(data.item_type === 'email'){
+
 		}else{
 			var obj = '<div class="message">';
 			obj +='<div class="title">Unknown item_type: '+data.item_type+'</div><div class="time">'+data.msg_source+data.item_time+'</div></div>';
@@ -158,7 +184,7 @@ $(document).ready(function() {
 		//$( ".messagesHolder" ).prepend(obj);
 		//$('.messages').html('timestamp: '+data.item_time+'<br />'+'msgType: '+data.item_type+'<br />'+'message: '+data.item_value+'<br />');
 	});
-
+	
 	//==========================================================
 	// Receive a reload command from server
 	// data = {}

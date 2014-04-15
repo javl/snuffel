@@ -18,22 +18,28 @@
     <script src="/static/js/socket.io/socket.io.min.js"></script>
 	<script src="/static/js/jquery-ui-1.10.4.custom.min.js"></script>
 	<script src="/static/js/script.js" type="text/javascript"></script>
+
+	<link rel="stylesheet" href="/static/fancybox/jquery.fancybox.css" type="text/css" media="screen" />
+	<script type="text/javascript" src="/static/fancybox/jquery.fancybox.pack.js"></script>
+	<!-- <script src="/static/hammer.js/hammer.js"></script> -->
+
 </head>
 
 <body>
+
 	<div class="servicesMessagesHolder"></div>
-	<div class="imageMessagesHolder"></div>
 	<div class="textMessagesHolder"></div>
+	<div class="imageMessagesHolder"></div>
 	
 	<!-- Bottom bar with start/stop, info and settings button -->
+	<!-- //
 	<div class="bottomBar">
-		<!-- <button class="actionBtn" data-action="toggle_sniffing">Start</button> -->
+		<button class="actionBtn" data-action="toggle_sniffing">Start</button>
 		<button class="actionBtn" data-action="get_statistics">Statistics</button>
 		<button class="actionBtn" data-action="open_menu">Menu</button>
-		<!-- Indicator turns red/green to show if socket is connected to server
-		and shows the amount of devices that are connected (open sockets) -->
 		<button class="actionBtn connectedIndicator" data-action="show_connection_status">0</button>	
 	</div>
+	// -->
 	
 	<!-- Show dialog telling you if the app is connected -->
 	<div class="connectedIndicatorDialog dialog">message</div>

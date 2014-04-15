@@ -18,35 +18,42 @@
 	}
 	.servicesMessagesHolder{
 		position: absolute 0 0;
-		height: 16%;
-		background-color: red;
+		height: 14%;
+		border-bottom: 1px solid black;
+	}
+	.serviceIcon{
+		padding: 1%;
+		height: 80%;
 	}
 	.imageMessagesHolder{
+		border-left: 1px solid black;
 		position: absolute;
 		left: 50%;
 		top: 0;
 		height: 100%;
-		background-color: green;
 		overflow: scroll;
 		background-image: url('images/background-pattern.jpg');
-		background-repeat: repeat;
+		/*background-repeat: repeat;*/
 	}
 	.textMessagesHolder{
-		height: 42%;
+		position: absolute;
+		top: 15%;
+		height: 86%;
 		background-color: white;
 		overflow-x: hidden;
 		overflow-y: scroll;
 	}
-	.imageMessagesHolder .message {
-		/*float: left;*/
+	.textMessagesHolder .message1 {
+		background-color: #DDD;
+		padding: 1%;
 	}
-	.imageMessagesHolder img{
+	.imageMessagesHolder .siteImage{
 		float: left;
 		width: 33%;
-/*		min-width: 20%;
-		max-width: 50%;
-*/	}
-
+	}
+	.imageMessagesHolder .siteImageSmall{
+		width: 16.5%;
+	}
 
 	.hidden{
 		display: none;

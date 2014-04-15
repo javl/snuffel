@@ -204,7 +204,7 @@ class PacketAnalyzer(threading.Thread):
         self.own_ip = socket.gethostbyname(socket.gethostname())
         self.image_extentions = ['.jpg', '.jpeg', '.gif', '.png', '.bmp', '.svg', '.ico']
         self.url_ignore_endings = ['.js', '.css', '.woff', '.eot', '.ttf']
-        self.ignore_keywords = [ARGS.server_host, 'min.js', 'min.css', '.js?', '.css?']
+        self.ignore_keywords = [ARGS.server_host, 'min.js', 'min.css', '.js?', '.css?', 'loading.gif']
 
         # Determine packetSource - live capture or pcap file
         self.packetsource = None
